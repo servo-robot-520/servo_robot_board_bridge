@@ -1,0 +1,9 @@
+servo_robot_board_bridge:
+  ros__parameters:
+    log:
+      log_level: info
+      log_path: ./log
+    auto_start: true
+    diagnostics:
+      topic: /diagnostics
+      publish_period_ms: 5000
