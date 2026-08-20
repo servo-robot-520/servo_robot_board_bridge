@@ -11,6 +11,10 @@
 
 #include <rclcpp_action/create_server.hpp>
 
+#include "common_cpp/logging/log.hpp"
+#include "common_cpp/logging/log_interface/log_interface.hpp"
+#include "common_cpp/logging/log_interface/log_manager.hpp"
+
 using namespace std::chrono_literals;
 using namespace servo_robot_board_interface;
 
@@ -177,10 +181,13 @@ namespace srbb {
             config_publisher_->publish(msg);
         };
 
-        // Log → MsgLog
+        // Log
         driver_ctx_.on_log = [this](const sr_log_message* d) {
             RCLCPP_DEBUG(logger_, "on_log: level=%u", d->level);
-            // todo 直接使用RCLCPP输出
+            const auto logger = log_interface::LogManager::get();
+            if (logger) {
+                logger->log(static_cast<log_interface::LogInterface::Level>(d->level), d->file_name, -1, d->fun_name, d->msg);
+            }
         };
 
         // System info → MsgSystem

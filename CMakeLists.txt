@@ -82,6 +82,21 @@ ament_target_dependencies(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} servo_robot_driver)
 
+if (ROS2_WS_SOURCE_BUILD)
+    if (NOT TARGET common_cpp_logging_interface)
+        message(FATAL_ERROR
+                "Source workspace configuration requires in-tree "
+                "common_cpp_logging_interface targets before ${PROJECT_NAME}.")
+    endif ()
+    target_link_libraries(${PROJECT_NAME}
+            common_cpp_logging_interface
+    )
+else ()
+    target_link_libraries(${PROJECT_NAME}
+            common_cpp::common_cpp_logging_interface
+    )
+endif ()
+
 if (ROS2_WS_SOURCE_BUILD AND TARGET servo_robot_board_interface)
     rosidl_get_typesupport_target(servo_robot_board_interface_CPP_TYPESUPPORT_TARGET
             servo_robot_board_interface
