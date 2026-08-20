@@ -39,10 +39,9 @@ endif ()
 
 set(PROJECT_EXE_NAME ${PROJECT_NAME}_node)
 
-# find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
@@ -51,11 +50,19 @@ find_package(sensor_msgs REQUIRED)
 
 if (NOT ROS2_WS_SOURCE_BUILD)
     find_package(servo_robot_board_interface REQUIRED)
-    #    find_package(ros_common_cpp REQUIRED)
+    find_package(common_cpp REQUIRED)
 endif ()
 
+# ── servo_robot_driver (Rust FFI shared library) ──────────────────────
+add_library(servo_robot_driver SHARED IMPORTED GLOBAL)
+set_target_properties(servo_robot_driver PROPERTIES
+        IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/lib/libservo_robot_driver.so"
+        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/include/servo_robot_board_bridge"
+)
+
 add_library(${PROJECT_NAME} STATIC
-    src/servo_robot_board_bridge.cpp
+        src/bridge.cpp
+        src/lifecycle_node.cpp
 )
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
 set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -66,11 +73,14 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 ament_target_dependencies(${PROJECT_NAME}
         rclcpp
+        rclcpp_action
         rclcpp_lifecycle
         lifecycle_msgs
         diagnostic_msgs
+        std_msgs
         sensor_msgs
 )
+target_link_libraries(${PROJECT_NAME} servo_robot_driver)
 
 if (ROS2_WS_SOURCE_BUILD AND TARGET servo_robot_board_interface)
     rosidl_get_typesupport_target(servo_robot_board_interface_CPP_TYPESUPPORT_TARGET
@@ -118,15 +128,28 @@ if (BUILD_EXE)
             src/main.cpp
     )
     target_compile_features(${PROJECT_EXE_NAME} PRIVATE cxx_std_23)
-    target_link_libraries(${PROJECT_EXE_NAME}
-            ${PROJECT_NAME}
-            ${PROJECT_NAME}_component
+    target_link_libraries(${PROJECT_EXE_NAME} ${PROJECT_NAME})
+    set_target_properties(${PROJECT_EXE_NAME} PROPERTIES
+            BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/lib"
+            INSTALL_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/lib"
     )
     ament_target_dependencies(${PROJECT_EXE_NAME}
             rclcpp
             rclcpp_lifecycle
             lifecycle_msgs
     )
+    if (ROS2_WS_SOURCE_BUILD)
+        if (NOT TARGET common_cpp_ros_logging)
+            message(FATAL_ERROR
+                    "Source workspace configuration requires the in-tree common_cpp_ros_logging "
+                    "target before ${PROJECT_NAME}.")
+        endif ()
+        target_link_libraries(${PROJECT_EXE_NAME} common_cpp_ros_logging)
+    else ()
+        target_link_libraries(${PROJECT_EXE_NAME}
+                ros_common_cpp::common_cpp_ros_logging
+        )
+    endif ()
 
 endif ()
 
@@ -160,7 +183,7 @@ install(DIRECTORY include/
 )
 
 ament_export_dependencies(
-        rclcpp rclcpp_components rclcpp_lifecycle lifecycle_msgs diagnostic_msgs
+        rclcpp rclcpp_action rclcpp_lifecycle lifecycle_msgs diagnostic_msgs
         std_msgs sensor_msgs
         servo_robot_board_interface
 )

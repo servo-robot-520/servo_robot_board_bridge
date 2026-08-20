@@ -4,6 +4,14 @@ servo_robot_board_bridge:
       log_level: info
       log_path: ./log
     auto_start: true
+    serial:
+      port: /dev/ttyUSB0
+      baud_rate: 115200
+    reconnect:
+      max_retries: 10
+      retry_interval_ms: 2000
+      backoff_multiplier: 1.5
+      max_retry_interval_ms: 30000
     diagnostics:
       topic: /diagnostics
       publish_period_ms: 5000
